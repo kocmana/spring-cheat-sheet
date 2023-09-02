@@ -1,0 +1,95 @@
+:toc: macro
+:toclevels: 3
+:toc-title: Table of Contents
+
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :point_right:
+:important-caption: :loudspeaker:
+:caution-caption: :rotating_light:
+:warning-caption: :warning:
+endif::[]
+
+= Spring Cheat Sheet
+
+toc::[]
+
+== Consuming REST APIs
+
+=== Using Spring 3 HTTP Interfaces (Feign Alike)
+. Create an Interface annotated with `@HttpExchange defining available endpoints
++
+[source,java]
+----
+@HttpExchange(accept = APPLICATION_JSON_VALUE, contentType = APPLICATION_JSON_VALUE)
+public interface FooClient {
+
+    @PostExchange
+    FooResponse doAComplicatedRequest(@RequestBody FooRequest request);
+
+}
+----
+
+. Provide a `HttpClient` Bean
++
+as this approach is based on the Reactive Stack.
++
+[source,java]
+----
+    @Bean
+    HttpClient httpClient() {
+        return HttpClient.create()
+                .responseTimeout(properties.timeout());
+    }
+----
+
+. Provide a `HttpServiceProxyFactory` Bean based on the HTTPClient
++
+[source,java]
+----
+    @Bean
+    HttpServiceProxyFactory httpServiceProxyFactory(HttpClient client){
+        var webclient = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(client))
+                .baseUrl(properties.baseUrl())
+                .defaultHeader(API_AUTHORIZATION_KEY, API_AUTHORIZATION_KEY)
+                .defaultStatusHandler(HttpStatusCode::isError,
+                        error -> error.bodyToMono(ErrorRecord.class)
+                                .flatMap(body -> Mono.error(new ErrorRecord(body.error().message()))))
+                .build();
+
+        return HttpServiceProxyFactory.builder(WebClientAdapter.forClient(webclient))
+                .blockTimeout(properties.timeout())
+                .build();
+----
+
+. Use the `HttpServiceProxyFactory` Bean to create the client based on the Interface provided
++
+[source,java]
+----
+    @Bean
+    public FooClient fooClient(HttpServiceProxyFactory httpServiceProxyFactory) {
+        return httpServiceProxyFactory.createClient(FooClient.class);
+    }
+----
+
+==== Additional Resources
+* https://www.baeldung.com/spring-6-http-interface[Baeldung HTTP Interface Tutorial]
+
+== JSON Handling
+
+=== Navigating JSON Objects via `JsonNode`
+
+=== Creating Custom Deserializer
+
+=== Testing JSON Handling Functionality
+Annotate JSON related tests as
+[source,java]
+----
+@JsonTest
+public class FooDeserializerTest{
+    //...
+}
+----
+
+=== Additional Resources
