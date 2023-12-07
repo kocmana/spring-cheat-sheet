@@ -14,6 +14,16 @@ endif::[]
 
 toc::[]
 
+== Thread Management
+Enable virtual threads for Tomcat (will not interfere with default Thread Pool as it seems?).
+[source,yaml]
+----
+spring:
+  threads:
+    virtual:
+      enabled: true
+----
+
 == Consuming REST APIs
 
 === Using Spring 3 HTTP Interfaces with WebClient (Feign-Alike)
