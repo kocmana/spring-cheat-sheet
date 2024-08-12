@@ -1,5 +1,5 @@
 :toc: macro
-:toclevels: 3
+:toclevels: 2
 :toc-title: Table of Contents
 
 ifdef::env-github[]
@@ -15,7 +15,7 @@ endif::[]
 toc::[]
 
 == Thread Management
-Enable virtual threads for Tomcat (will not interfere with default Thread Pool as it seems?).
+Enable virtual threads for Tomcat.
 [source,yaml]
 ----
 spring:
@@ -23,6 +23,248 @@ spring:
     virtual:
       enabled: true
 ----
+
+== Persistence And JPA
+
+=== Local Docker Setup for PostgreSQL
+* Basis for a docker-compose.yaml:
++
+[source,yaml]
+----
+services:
+  products-db:
+    image: postgres:16.3
+    container_name: foo-db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: foo
+    volumes:
+      - foo-db:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    command: ["postgres", "-c", "log_statement=all"]
+
+  test-service-adminer:
+    container_name: test-service-adminer
+    image: adminer
+    restart: always
+    ports:
+      - 9090:8080
+
+volumes:
+  foo-db:
+----
+
+=== General Setup
+* Global setup:
++
+[source,yaml]
+----
+spring:
+  jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: true
+    hibernate:
+      ddl-auto: none
+----
+
+* Profile specific configuration:
++
+[source,yaml]
+----
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce
+    username: user
+    password: password
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
+  web:
+    resources:
+      add-mappings: true
+----
+
+=== Liquibase Setup
+
+==== Changeset Definition
+
+* Root Changeset:
++
+[source,yaml]
+----
+databaseChangeLog:
+  - includeAll:
+      path: classpath:/db/changelog/changes/
+      errorIfMissingOrEmpty: true
+----
+
+* Referenced changeset files (order is selected by filename descending):
++
+[source,sql]
+----
+--liquibase formatted sql
+
+--changeset author:1
+CREATE TABLE IF NOT EXISTS price
+(
+    product_id INTEGER   NOT NULL,
+    valid_from TIMESTAMP NOT NULL,
+    valid_to   TIMESTAMP NOT NULL,
+    currency   VARCHAR(255),
+    value      FLOAT,
+    PRIMARY KEY (product_id, valid_from, valid_to)
+);
+--rollback DROP TABLE price;
+----
+
+==== Spring Boot Centric Integration
+* Required Dependency
+** Only Spring Boot Integration (Version maintained by Spring Boot BOM):
++
+[source,xml]
+----
+<dependency>
+    <groupId>org.liquibase</groupId>
+    <artifactId>liquibase-core</artifactId>
+</dependency>
+----
+
+* Reference to the Changelog:
++
+[source,yaml]
+----
+spring:
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
+----
+
+==== Additional Setup For Maven Plugin
+#TODO
+
+
+=== Logging and Debugging
+
+==== Additions to the Docker file/Docker compose file
+
+* Enable statement logging:
++
+[source,yaml]
+----
+    command: ["postgres", "-c", "log_statement=all"]
+----
+
+==== Application Properties Changes
+
+[source,yaml]
+----
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        generate_statistics: true
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: TRACE
+----
+
+=== JPA Auditing and Versioning
+
+==== Auditing
+. Creating an AuditorAware Provider (_nota bene:_ Modify fetching of current principal to current need and security configuration)
++
+[source,java]
+----
+@Slf4j
+public class AuditorAwareProvider implements AuditorAware<String> {
+    @Override
+    public Optional<String> getCurrentAuditor() {
+
+        var principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if(principal instanceof User user) {
+            return Optional.of(user.getUsername());
+        }
+        return Optional.empty();
+    }
+}
+----
+
+. Enabling auditing via configuration and exposing the bean implementing the SPI
++
+[source,java]
+----
+@Configuration
+@Slf4j
+@EnableJpaAuditing(auditorAwareRef = "auditorAware")
+public class AuditingConfiguration {
+    @Bean
+    public AuditorAware<String> auditorAware(){
+        return new AuditorAwareProvider();
+    }
+}
+----
+
+. Setting up auditing on `Entity` level
++
+[source,java]
+----
+@Table(name = "price")
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@EntityListeners(AuditingEntityListener.class) // enable auditing for the entity
+public class Price {
+
+  @Id
+  @Column(name = "product_id")
+  private Integer productId;
+
+  //...
+
+  @CreatedDate
+  @Column(name="created_at")
+  private LocalDateTime createdAt;
+
+  @CreatedBy
+  @Column(name="created_by")
+  private String createdBy;
+
+  @LastModifiedDate
+  @Column(name = "updated_at")
+  private LocalDateTime updatedAt;
+
+  @LastModifiedBy
+  @Column(name = "updated_by")
+  private String updatedBy;
+}
+----
+
+==== Versioning via Envers
+
+. Add Dependency
+[source,xml]
++
+----
+<dependency>
+    <groupId>org.hibernate</groupId>
+    <artifactId>hibernate-envers</artifactId>
+    <version>${envers.version}</version>
+</dependency>
+----
+
+. Add suitable versioning tables for audited entities
+
+. Add `@Audited` Annotation to Entity Classes or Attributes
++
+Don't forget to annotate non primitive associations as well if required.
 
 == Consuming REST APIs
 
