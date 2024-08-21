@@ -12,6 +12,8 @@ endif::[]
 
 = Spring Cheat Sheet
 
+NOTE: Github does not support AsciiDoc's `include` footnote:[https://github.com/github/markup/issues/1095:[Issue opened in 2017]]. It is unfortuately hence necessary to work with these notes locally.
+
 toc::[]
 
 :leveloffset: +1
