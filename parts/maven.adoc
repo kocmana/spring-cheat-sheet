@@ -1,0 +1,16 @@
+= Maven
+
+== Multi-Module Projects
+
+
+
+=== Navigating the Project Filesystem
+Go through parent folders:
+[source, xml]
+----
+<configuration>
+    <sourceDirectory>${project.parent.basedir}/avro/</sourceDirectory>
+    <outputDirectory>${project.parent.basedir}/src/main/java/</outputDirectory>
+    <stringType>String</stringType>
+</configuration>
+----

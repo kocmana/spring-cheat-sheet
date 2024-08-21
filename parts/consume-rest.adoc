@@ -1,0 +1,131 @@
+= Consuming REST APIs
+
+== Using Spring 3 HTTP Interfaces with WebClient (Feign-Alike)
+. Add a dependency to Spring Reactive Web
++
+Required as this approach is based on the Reactive Stack.
++
+[source,xml]
++
+----
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-webflux</artifactId>
+</dependency>
+----
+
+. Create an Interface annotated with `@HttpExchange defining available endpoints
++
+[source,java]
+----
+@HttpExchange(accept = APPLICATION_JSON_VALUE, contentType = APPLICATION_JSON_VALUE)
+public interface FooClient {
+
+    @PostExchange
+    FooResponse doAComplicatedRequest(@RequestBody FooRequest request);
+
+}
+----
+
+. Provide a `HttpClient` Bean
++
+[source,java]
+----
+    @Bean
+    HttpClient httpClient() {
+        return HttpClient.create()
+                .responseTimeout(properties.timeout());
+    }
+----
+
+. Provide a `HttpServiceProxyFactory` Bean based on the HTTPClient
++
+[source,java]
+----
+    @Bean
+    HttpServiceProxyFactory httpServiceProxyFactory(HttpClient client){
+        var webclient = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(client))
+                .baseUrl(properties.baseUrl())
+                .defaultHeader(API_AUTHORIZATION_KEY, API_AUTHORIZATION_KEY)
+                .defaultStatusHandler(HttpStatusCode::isError,
+                        error -> error.bodyToMono(ErrorRecord.class)
+                                .flatMap(body -> Mono.error(new ErrorRecord(body.error().message()))))
+                .build();
+
+        return HttpServiceProxyFactory.builder(WebClientAdapter.forClient(webclient))
+                .blockTimeout(properties.timeout())
+                .build();
+----
+
+. Use the `HttpServiceProxyFactory` Bean to create the client based on the Interface provided
++
+[source,java]
+----
+    @Bean
+    public FooClient fooClient(HttpServiceProxyFactory httpServiceProxyFactory) {
+        return httpServiceProxyFactory.createClient(FooClient.class);
+    }
+----
+
+=== Error Handling
+Since WebClient is based on Spring's Reactive Stack, error handling needs some adaptions as well.
+
+#TODO
+
+[source,java]
+----
+    @Bean
+    HttpServiceProxyFactory httpServiceProxyFactory(HttpClient client){
+        var webclient = WebClient.builder()
+                ...
+                .defaultStatusHandler(HttpStatusCode::isError,
+                        error -> error.bodyToMono(ErrorRecord.class)
+                                .flatMap(body -> Mono.error(new ErrorRecord(body.error().message()))))
+                ...
+                .build();
+----
+
+
+=== Additional Resources
+* https://www.baeldung.com/spring-6-http-interface[Baeldung HTTP Interface Tutorial]
+
+== Using Spring 3 HTTP Interfaces with RestClient (Feign-Alike)
+. Alike Spring 3 HTTP Interfaces using the WebClient, create an Interface annotated with `@HttpExchange defining available endpoints
++
+[source,java]
+----
+@HttpExchange(accept = APPLICATION_JSON_VALUE, contentType = APPLICATION_JSON_VALUE)
+public interface FooClient {
+
+    @PostExchange
+    FooResponse doAComplicatedRequest(@RequestBody FooRequest request);
+
+}
+----
+
+. Provide a `RESTClient` Bean
++
+[source,java]
+----
+@Bean
+RestClient RestClient() {
+    return RestClient.create("https://www.foo-base-url/api/v1");
+}
+----
+
+. Use the `RestClient` to create a Client
++
+[source,java]
+----
+@Bean
+RestClient RestClient(RestClient restClient) {
+    HttpServiceProxyFactory factory = HttpServiceProxyFactory
+            .builderFor(RestClientAdapter.create(client))
+            .build();
+    return factory.createClient(FooClient.class);
+}
+----
+
+=== Additional Resources
+* https://www.youtube.com/watch?v=UDNrJAvKc0k[DanVega Rest Client Tutorial]

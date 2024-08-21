@@ -1,0 +1,17 @@
+= JSON Handling
+
+== Navigating JSON Objects via `JsonNode`
+
+== Creating Custom Deserializer
+
+== Testing JSON Handling Functionality
+Annotate JSON related tests as
+[source,java]
+----
+@JsonTest
+public class FooDeserializerTest{
+    //...
+}
+----
+
+== Additional Resources

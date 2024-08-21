@@ -1,0 +1,14 @@
+= Task Scheduling using Spring Boot
+
+[source,java]
+----
+@Configuration
+@EnableAsync
+@EnableScheduling
+public class AppConfig {
+}
+----
+
+== Additional Resources
+* https://docs.spring.io/spring-framework/reference/integration/scheduling.html[Spring Documentation for Scheduling]
+* https://medium.com/hprog99/mastering-job-scheduling-in-spring-boot-from-basics-to-best-practices-74ab938d80fa[Medium: Job Scheduling Best Practices]
