@@ -248,6 +248,7 @@ Kafka/Confluent Dependencies
 ----
 
 == Producer
+WARNING: Make sure to enable Kafka support using the `@EnableKafka` annotation in your application.
 
 === Spring Boot Configuration
 Minimal Configuration for producing Avro Serialized Messages using a schema registry:
@@ -272,7 +273,23 @@ spring:
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
 ----
 
+=== Topic Creation
+Manual topic creation during application startup. Not intended for production.
+[source,java]
+----
+  @Bean
+  public NewTopic topic() {
+    return TopicBuilder.name("foo")
+        .partitions(6)
+        .replicas(1)
+        .config("...", "...")
+        .build();
+  }
+----
+`.config(String, String)` allows to define additional topic porperties from https://kafka.apache.org/0110/javadoc/org/apache/kafka/common/config/TopicConfig.html[Apache Kafka topic properties].
+
 == Consumer
+WARNING: Make sure to enable Kafka support using the `@EnableKafka` annotation in your application.
 
 === Spring Boot Configuration
 Minimal Configuration for consuming Avro Serialized Messages using a schema registry:
@@ -295,6 +312,20 @@ spring:
             url: "http://localhost:8081"
 ----
 
+=== Error Handling
+
+via `DefaultErrorHandler` which contains most notable of a
+
+* `ConsumerRecordRecoverer`: a BiConsumer `BiConsumer<ConsumerRecord<?, ?>, Exception>`
+**
+* `BackOff`: a `BackOff` strategy
+** `FixedBackOff`
+** `ExponentialBackOff`
+
+* RetryTemplate or BackOff based in DefaultErrorHandler?
+
 === Additional Resources
+* https://docs.spring.io/spring-kafka/reference/kafka/container-props.html[List of all Kafka Consumer Container Properties]
 * https://docs.spring.io/spring-boot/reference/messaging/kafka.html#messaging.kafka[Basic Spring Boot Application.properties Documentation]
 * https://docs.spring.io/spring-boot/api/java/org/springframework/boot/autoconfigure/kafka/KafkaProperties.html[Spring Boot Javadoc List of Supported Configuration Properties]
+* https://kafka.apache.org/0110/javadoc/org/apache/kafka/common/config/TopicConfig.html[Topic Configuration Property]

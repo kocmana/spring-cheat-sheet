@@ -1,0 +1,5 @@
+//This file is not part of the overall file since it does not quite fit the scope.
+= IntelliJ
+
+== Shortcuts
+* Show Implementations of Interface: Command + Option + B
